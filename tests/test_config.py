@@ -33,7 +33,7 @@ def test_config_from_env_loads_successfully(monkeypatch, temp_dir):
     # Check config attributes that actually exist
     assert config.smtp_user == 'test@test.com'
     assert config.base_url == 'https://test.com'
-    assert config.schedule_frequency_hours == 0.5  # Default for passage plans
+    assert config.schedule_frequency_hours == 1
 
 
 def test_config_validation_passes_with_valid_data(mock_config):

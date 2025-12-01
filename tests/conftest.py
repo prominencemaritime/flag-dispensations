@@ -13,7 +13,7 @@ from unittest.mock import Mock, MagicMock
 from src.core.config import AlertConfig
 from src.core.tracking import EventTracker
 from src.core.scheduler import AlertScheduler
-from src.alerts.passage_plan_alert import PassagePlanAlert
+from src.alerts.flag_dispensations_alert import FlagDispensationsAlert
 
 
 @pytest.fixture
@@ -52,8 +52,9 @@ def mock_config(temp_dir, monkeypatch):
     
     monkeypatch.setenv('BASE_URL', 'https://test.orca.tools')
     monkeypatch.setenv('LOOKBACK_DAYS', '1')
+    monkeypatch.setenv('JOB_STATUS', 'for_approval')
     monkeypatch.setenv('ENABLE_LINKS', 'True')
-    monkeypatch.setenv('URL_PATH', '/events')
+    monkeypatch.setenv('URL_PATH', '/jobs/flag-extension-dispensation')
     
     monkeypatch.setenv('DRY_RUN_EMAIL', '')
     
@@ -71,34 +72,45 @@ def mock_config(temp_dir, monkeypatch):
 
 @pytest.fixture
 def sample_dataframe():
-    """Create sample passage plan DataFrame with correct schema."""
+    """Create sample flag dispensations DataFrame with correct schema."""
     data = {
         'vessel_id': [101, 101, 102, 103],
-        'vessel_name': ['SERIFOS I', 'SERIFOS I', 'AGRIA', 'BALI'],
+        'vessel': ['KNOSSOS', 'KNOSSOS', 'MINI', 'NONDAS'],
         'vsl_email': [
-            'serifos.i@vsl.prominencemaritime.com',
-            'serifos.i@vsl.prominencemaritime.com',
-            'agria@vsl.prominencemaritime.com',
-            'bali@vsl.prominencemaritime.com'
+            'knossos@vsl.prominencemaritime.com',
+            'knossos@vsl.prominencemaritime.com',
+            'mini@vsl.prominencemaritime.com',
+            'nondas@vsl.prominencemaritime.com'
         ],
-        'event_type_id': [37, 37, 37, 37],
-        'event_type_name': ['Passage Plan', 'Passage Plan', 'Passage Plan', 'Passage Plan'],
-        'event_id': [201, 202, 203, 204],
-        'event_name': ['Athens to Piraeus', 'Piraeus to Rhodes', 'Rhodes to Cyprus', 'Cyprus to Haifa'],
-        'status_id': [3, 3, 3, 3],
-        'status': ['for-review', 'for-review', 'for-review', 'for-review'],
+        'job_id': [501, 502, 503, 504],
+        'importance': ['High', 'Medium', 'High', 'Low'],
+        'title': [
+            'Flag Extension Request - Greece',
+            'Flag Dispensation - Safety Equipment',
+            'Flag Extension - Crew Certification',
+            'Flag Dispensation - Annual Survey'
+        ],
+        'dispensation_type': ['Extension', 'Dispensation', 'Extension', 'Dispensation'],
+        'department': ['Deck', 'Safety', 'Crew', 'Technical'],
+        'due_date': [
+            '2025-12-15',
+            '2025-12-20',
+            '2025-12-10',
+            '2025-12-25'
+        ],
+        'requested_on': [
+            '2025-11-01',
+            '2025-11-15',
+            '2025-11-20',
+            '2025-11-25'
+        ],
         'created_at': [
-            datetime.now() - timedelta(days=2),
-            datetime.now() - timedelta(days=1),
-            datetime.now() - timedelta(days=1),
-            datetime.now() - timedelta(days=3)
-        ],
-        'synced_at': [
             datetime.now() - timedelta(hours=1),
             datetime.now() - timedelta(hours=2),
             datetime.now() - timedelta(hours=3),
             datetime.now() - timedelta(hours=4)
-        ]
+        ],
+        'status': ['for_approval', 'for_approval', 'for_approval', 'for_approval']
     }
     return pd.DataFrame(data)
 

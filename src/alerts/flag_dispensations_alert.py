@@ -1,6 +1,3 @@
-# job_vessels.job_id = job_entities.id
-# job_vessles.vessel_id = vessels.id
-
 #src/alerts/flag_dispensations_alert.py
 """Flag Dispensations Alert Implementation.""" 
 from typing import Dict, List, Optional
