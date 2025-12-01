@@ -39,7 +39,7 @@ class HTMLFormatter:
             display_value = str(value)
 
         # Make event_name clickable if links are enabled
-        if column_name == 'event_name' and enable_links:
+        if column_name == 'title' and enable_links:
             # Check if url exists in row and has a value
             if 'url' in row.index and pd.notna(row['url']):
                 url = row['url']
@@ -90,12 +90,18 @@ class HTMLFormatter:
         padding: 0;
     }}
     .container {{
-        max-width: 900px;
+        max-width: 1200px;
+        width: 95%;
         margin: 30px auto;
         background: #ffffff;
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         overflow: hidden;
+    }}
+    .table-wrapper {{
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 20px 0;
     }}
     .header {{
         background-color: #0B4877;
@@ -159,6 +165,7 @@ class HTMLFormatter:
     }}
     table {{
         width: 100%;
+        min-width: 600px;
         border-collapse: collapse;
         margin: 20px 0;
         font-size: 14px;
@@ -170,10 +177,17 @@ class HTMLFormatter:
         text-align: left;
         padding: 12px;
         font-weight: 600;
+        min-width: 80px;
+        word-wrap: break-word;
     }}
     td {{
         padding: 10px 12px;
         border-bottom: 1px solid #e0e6ed;
+        min-width: 80px;
+        word-wrap: break-word;
+    }}
+    th:first-child, td:first-child {{
+        min-width: 120px;
     }}
     tr:nth-child(even) {{
         background-color: #f5f8fb;
@@ -202,20 +216,47 @@ class HTMLFormatter:
         color: #666;
         font-size: 16px;
     }}
-    @media only screen and (max-width: 600px) {{
+    @media only screen and (max-width: 768px) {{
+        .container {{
+            width: 98%;
+            margin: 10px auto;
+            border-radius: 8px;
+        }}
         .header {{
             flex-direction: column;
             text-align: center;
+            padding: 15px;
         }}
         .header-text {{
             text-align: center;
             margin-top: 15px;
         }}
+        .content {{
+            padding: 15px;
+        }}
         table {{
-            font-size: 12px;
+            font-size: 13px;
+            min-width: 500px;
         }}
         th, td {{
             padding: 8px;
+            min-width: 60px;
+            font-size: 12px;
+        }}
+    }}
+    @media only screen and (max-width: 480px) {{
+        .container {{
+            width: 100%;
+            margin: 0;
+            border-radius: 0;
+        }}
+        table {{
+            min-width: 400px;
+        }}
+        th, td {{
+            padding: 6px;
+            min-width: 50px;
+            font-size: 11px;
         }}
     }}
 </style>
@@ -252,7 +293,7 @@ class HTMLFormatter:
             </div>
             <div class="metadata-row">
                 <span class="metadata-label">Lookback:</span>
-                {duration(config.lookback_days)} (to synced at)
+                {duration(config.lookback_days * 24)} (to created at)
             </div>
             <div class="metadata-row">
                 <span class="metadata-label">Schedule Frequency:</span>
@@ -272,23 +313,26 @@ class HTMLFormatter:
 
             # Build table
             html += """
-        <table>
-            <thead>
-                <tr>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
 """
             # Add column headers (only for display columns)
             for col in display_columns:
+                if col == 'dispensation_type':
+                    col = 'type'
                 display_name = col.replace('_', ' ').title()
-                html += f"                    <th>{display_name}</th>\n"
+                html += f"                        <th>{display_name}</th>\n"
 
-            html += """                </tr>
-            </thead>
-            <tbody>
+            html += """                    </tr>
+                </thead>
+                <tbody>
 """
 
             # Add data rows (only display columns)
             for idx, row in df.iterrows():
-                html += "                <tr>\n"
+                html += "                    <tr>\n"
                 for col in display_columns:
                     # Use _render_cell to handle links
                     cell_content = self._render_cell(
@@ -297,11 +341,12 @@ class HTMLFormatter:
                         row=row,
                         enable_links=enable_links
                     )
-                    html += f"                    <td>{cell_content}</td>\n"
-                html += "                </tr>\n"
+                    html += f"                        <td>{cell_content}</td>\n"
+                html += "                    </tr>\n"
 
-            html += """            </tbody>
-        </table>
+            html += """                </tbody>
+            </table>
+        </div>
 """
 
         # Footer

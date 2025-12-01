@@ -1,3 +1,6 @@
+# job_vessels.job_id = job_entities.id
+# job_vessles.vessel_id = vessels.id
+
 #src/alerts/flag_dispensations_alert.py
 """Flag Dispensations Alert Implementation.""" 
 from typing import Dict, List, Optional
@@ -30,33 +33,48 @@ class FlagDispensationsAlert(BaseAlert):
         # Load query + lookback
         self.sql_query_file = 'FlagDispensations.sql'
         self.lookback_days = config.lookback_days
+        self.job_status = config.job_status
 
         # Log instantiation
-        self.logger.info(f"[OK] PassagePlanAlert instance created")
+        self.logger.info(f"[OK] FlagDispensationsAlert instance created")
 
         
     def fetch_data(self) -> pd.DataFrame:
         """
-        Fetch passage plans from database
+        Fetch flag dispensations from database
 
         Returns:
-            DataFrame with columns: event_type_id, event_type_name, 
-            vsl_email, vessel_id, vessel_name, event_id, event_name, 
-            created_at, synced_at, status, status_id
+            DataFrame with columns: 
+                
+                vsl_email, 
+                vessel, 
+                job_id,
+                importance,
+                title,
+                dispensation_type,
+                department,
+                due_date,
+                requested_on,
+                created_at,
+                status
         """
         # Load SQL query
         query_path = self.config.queries_dir / self.sql_query_file
         query_sql = validate_query_file(query_path)
 
         # Bind params to the query
-        params = {"lookback_days": self.lookback_days}
+        params = {
+                "lookback_days": self.lookback_days,
+                "job_status": self.job_status
+                }
         query = text(query_sql)
 
         # Execute Query
         with get_db_connection() as conn:
             df = pd.read_sql_query(query, conn, params=params)
 
-        self.logger.info(f"PassageAlertAlert.fetch_data() is returning a df with {len(df)} rows")
+        self.logger.info(f"FlagDispensationsAlert.fetch_data() is returning a df with {len(df)} rows and {len(df.keys())} columns")
+        self.logger.debug(f"df Columns: {[key for key in df.keys()]}")
         return df
 
 
@@ -75,35 +93,49 @@ class FlagDispensationsAlert(BaseAlert):
             return df
 
         # Timezone awareness
-        df['synced_at'] = pd.to_datetime(df['synced_at'])
+        df['created_at'] = pd.to_datetime(df['created_at'])
 
         # If the datetime is timezone-naive, localise it to UTC first, then convert to timezone specified in .env 
-        # It seems that the events timezones are probably UTC, but haven't proven this. I am assuming all times appearing are UTC, and then converting to TIMEZONE='Europe/Athens' will automatically be correct during Winter (UTC+2) and Summer (UTC+3).
-        if df['synced_at'].dt.tz is None:
-            df['synced_at'] = df['synced_at'].dt.tz_localize('UTC').dt.tz_convert(self.config.timezone)
+        # I am assuming all times appearing are UTC, and then converting to TIMEZONE='Europe/Athens' will automatically be correct during Winter (UTC+2) and Summer (UTC+3).
+        if df['created_at'].dt.tz is None:
+            df['created_at'] = df['created_at'].dt.tz_localize('UTC').dt.tz_convert(self.config.timezone)
         else:
             # If already timezone-aware, convert to timezone specified in .env
-            df['synced_at'] = df['synced_at'].dt.tz_convert(self.config.timezone)
+            df['created_at'] = df['created_at'].dt.tz_convert(self.config.timezone)
 
         # Calculate cutoff date (timezone-aware)
         cutoff_date = datetime.now(tz=ZoneInfo(self.config.timezone)) - timedelta(days=self.lookback_days)
 
         # Filter for recent sync (timezone-aware) corresponding to config.lookback_days
-        df_filtered = df[df['synced_at'] >= cutoff_date].copy()
+        df_filtered = df[df['created_at'] >= cutoff_date].copy()
 
         # Format dates for display
-        df_filtered['synced_at'] = df_filtered['synced_at'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        df_filtered['created_at'] = df_filtered['created_at'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
-        # Format created_at date
-        if 'created_at' in df_filtered.columns:
-            # errors='coerce' -> replace date/times that cannot be parsed by NaT
-            df_filtered['created_at'] = pd.to_datetime(df_filtered['created_at'], errors='coerce').dt.strftime('%Y-%m-%d')
-            # replace NaT by ''
-            df_filtered['created_at'] = df_filtered['created_at'].fillna('')
+        self._format_date_column(df_filtered, 'due_date')
+        self._format_date_column(df_filtered, 'requested_on')
+
+        # Replace null values by ''
+        for col in ['importance', 'dispensation_type', 'department']:
+            if col in df_filtered.columns:
+                df_filtered[col] = df_filtered[col].fillna('')
+
 
         self.logger.info(f"Filtered to {len(df_filtered)} entr{'y' if len(df_filtered)==1 else 'ies'} synced with LOOKBACK={self.lookback_days} day{'' if len(df_filtered)==1 else 's'}")
 
         return df_filtered
+
+
+    def _format_date_column(self, df: pd.DataFrame, col: str) -> None:
+        """
+        Modifies the DataFrame in place
+        """
+        if col in df.columns:
+            df[col] = (
+                pd.to_datetime(df[col], errors='coerce')
+                .dt.strftime('%Y-%m-%d')
+                .fillna('')
+            )
 
 
     def _get_url_links(self, link_id: int) -> Optional[str]:
@@ -112,7 +144,7 @@ class FlagDispensationsAlert(BaseAlert):
 
         Constructs URL by combining:
             - BASE_URL from config (e.g. https://prominence.orca.tools)
-            - URL_PATH from config (e.g. /events)
+            - URL_PATH from config (e.g. /jobs/flag-extension-dispensation/)
             - link_id from database (e.g. 123)
         Result: https://prominence.orca.tools/events/123
 
@@ -152,16 +184,16 @@ class FlagDispensationsAlert(BaseAlert):
         jobs = []
 
         # Group by vessel
-        grouped = df.groupby(['vessel_name', 'vsl_email'])
+        grouped = df.groupby(['vsl_email', 'vessel'])
 
-        for (vessel_name, vessel_email), vessel_df in grouped:
+        for (vessel_email, vessel_name), vessel_df in grouped:
             # Determine cc recipients
             cc_recipients = self._get_cc_recipients(vessel_email)
 
             # Add URLs to dataframe if ENABLE_LINKS
             if self.config.enable_links:
                 vessel_df = vessel_df.copy()
-                vessel_df['url'] = vessel_df['event_id'].apply(
+                vessel_df['url'] = vessel_df['job_id'].apply(
                         self._get_url_links
                 )
 
@@ -171,11 +203,16 @@ class FlagDispensationsAlert(BaseAlert):
 
             # Specify WHICH cols to display in email and in what order here
             display_columns = [
-                    'event_id',
-                    'event_name',
-                    'created_at',
-                    'synced_at',
-                    'status'
+                    #'vessel',
+                    #'job_id',
+                    #'importance',
+                    'title',
+                    'dispensation_type',
+                    'department',
+                    'requested_on',
+                    'due_date',
+                    'created_at'
+                    #'status'
             ]
 
             # Create notification job
@@ -184,8 +221,9 @@ class FlagDispensationsAlert(BaseAlert):
                     'cc_recipients': cc_recipients,
                     'data': full_data,
                     'metadata': {
+                        'vessel_id': vessel_df['vessel_id'].iloc[0],
                         'vessel_name': vessel_name,
-                        'alert_title': 'Passage Plan',
+                        'alert_title': 'Flag Dispensations',
                         'company_name': self._get_company_name(vessel_email),
                         'display_columns': display_columns
                     }
@@ -269,10 +307,9 @@ class FlagDispensationsAlert(BaseAlert):
         """
         try:
             vessel_id = row['vessel_id']
-            event_type_id = row['event_type_id']
-            event_id = row['event_id']
+            job_id = row['job_id']
 
-            return f"vessel_id_{vessel_id}__event_type_{event_type_id}__event_id_{event_id}"
+            return f"vessel_id_{vessel_id}__job_id_{job_id}"
 
         except KeyError as e:
             self.logger.error(f"Missing column in row for tracking key: {e}")
@@ -292,7 +329,7 @@ class FlagDispensationsAlert(BaseAlert):
             Email subject string
         """
         vessel_name = metadata.get('vessel_name', 'Vessel')
-        return f"AlertDev | {vessel_name.upper()} Passage Plan"
+        return f"AlertDev | {vessel_name.upper()} Flag Extensions-Dispensations"
 
 
     def get_required_columns(self) -> List[str]:
@@ -305,20 +342,14 @@ class FlagDispensationsAlert(BaseAlert):
         return [
             'vsl_email',
             'vessel_id',
-            'event_type_id',
-            'event_id',
-            'event_name',
+            'vessel',
+            'job_id',
+            'importance',
+            'title',
+            'dispensation_type',
+            'department',
+            'due_date',
+            'requested_on',
             'created_at',
-            'synced_at',
             'status'
         ]
-
-
-"""
-df_filtered.columns:
-    vsl_email, vessel_id,   <- groupby
-    event_type_id, event_type_name, vessel_name, status_id,     <- extra stuff
-    event_id, event_name, created_at, synced_at, status     <- display stuff
-"""
-
-

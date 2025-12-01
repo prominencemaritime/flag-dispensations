@@ -59,6 +59,7 @@ class AlertConfig:
 
     # Alert-specific configurations
     lookback_days: int
+    job_status: str
 
     # Tracking
     reminder_frequency_days: Union[float, None]
@@ -163,6 +164,7 @@ class AlertConfig:
 
             # Alert-specific configurations
             lookback_days=int(config('LOOKBACK_DAYS', default=1)),
+            job_status=str(config('JOB_STATUS', default='for_approval')),
 
             # Dry-run settings (don't set dry_run here, it's set by CLI flag in main.py)
             dry_run_email=config('DRY_RUN_EMAIL', default='').strip(),

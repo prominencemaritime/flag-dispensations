@@ -25,7 +25,7 @@ class BaseAlert(ABC):
 
     def __init__(self, config: 'AlertConfig'):
         """
-        Initialize alert with configuration.
+        Initialise alert with configuration.
 
         Args:
             config: AlertConfig instance with all necessary settings

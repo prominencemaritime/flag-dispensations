@@ -1,35 +1,52 @@
 /*
-event_type='Passage Plan'
-et.id=37
-es.name='for-review'
-es.id=3
-schedule_frequency_hours=0.5
-lookback_days=1
+job_entities.type = 'flag-extension-dispensation'
+schedule frequency=1h
+lookback=1d
+job_status=for_approval
 */
 SELECT
-	et.id AS event_type_id,
-	et.name AS event_type_name,
 	v.email AS vsl_email,
-	v.id AS vessel_id,
-	v.name AS vessel_name,
-	e.id AS event_id,
-	e.name AS event_name,
-	e.created_at,
-	ed.synced_at,
-	es.name AS status,
-	es.id AS status_id
-FROM
-	events e
-LEFT JOIN vessels v ON v.id = e.vessel_id
-LEFT JOIN event_details ed ON ed.event_id = e.id
-LEFT JOIN event_statuses es ON es.id = ed.status_id
-LEFT JOIN event_types et ON et.id = e.type_id
+	jv.vessel_id AS vessel_id,
+	v.name AS vessel,
+	jv.job_id as job_id,
+	ji.name as importance,
+	je.title AS title,
+	fedt.name as dispensation_type,
+	d.name AS department,
+	je.due_date AS due_date,
+	jvfe.requested_on AS requested_on,
+	je.created_at AS created_at,
+	js.name AS status
+FROM 
+	job_entities je 
+LEFT JOIN
+	job_importances ji
+	ON ji.id = je.importance_id
+LEFT JOIN
+	departments d
+	ON d.id = je.main_department_id
+LEFT JOIN
+	ports p
+	ON p.id = je.port_id
+LEFT JOIN
+	job_statuses js
+	ON js.id = je.status_id
+LEFT JOIN
+	job_vessel_flag_extensions jvfe
+	ON jvfe.job_id = je.id
+LEFT JOIN
+	flag_extension_and_dispensation_types fedt
+	ON fedt.id = jvfe.type_id
+LEFT JOIN
+	job_vessels jv
+	ON jv.job_id = je.id
+LEFT JOIN
+	vessels v
+	ON v.id = jv.vessel_id
 WHERE
-	et.id = 37  --passage-plan
-	AND es.id = 3   --for-review
-	AND LOWER(e.name) NOT LIKE '%test%'
-	AND LOWER(e.name) NOT LIKE '%vessel%'
-	AND ed.synced_at >= NOW() - INTERVAL '1 day' * :lookback_days
-	AND e.deleted_at IS NULL
-ORDER BY
-	ed.synced_at ASC;
+	je.type = 'flag-extension-dispensation'
+	AND je.deleted_at IS NULL
+	AND je.archived_at IS NULL
+	AND v.active = 'true'
+	AND je.created_at >= NOW() - INTERVAL '1 day' * :lookback_days -- 1
+	AND js.label = :job_status;  -- 'for_approval'
