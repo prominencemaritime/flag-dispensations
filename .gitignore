@@ -28,6 +28,7 @@ logs/*.log
 
 # Data (if sensitive)
 data/*.csv
+data/*.json
 !data/.gitkeep
 
 # Mac
