@@ -24,6 +24,7 @@ ENV/
 
 # Logs
 logs/*.log
+logs/*.txt
 *.log
 
 # Data (if sensitive)
