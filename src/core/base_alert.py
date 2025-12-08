@@ -10,6 +10,7 @@ from typing import Dict, List, Tuple
 import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
@@ -193,10 +194,14 @@ class BaseAlert(ABC):
             # Step 6: Send notifications
             success = self._send_notifications(notification_jobs, run_time)
 
+            # Step 7: Write health status
+            self._write_health_status("OK", run_time)
+
             return success
 
         except Exception as e:
             self.logger.exception(f"Error in {self.__class__.__name__}.run(): {e}")
+            self._write_health_status("ERROR", run_time, str(e))
             return False
         finally:
             self.logger.info(f"◼ {self.__class__.__name__} RUN COMPLETE")
@@ -291,3 +296,26 @@ class BaseAlert(ABC):
                 self.logger.info(f"[DRY-RUN] Would mark {len(sent_keys)} event(s) as sent (tracking disabled in dry-run)")
         
         return any_sent
+
+
+    def _write_health_status(self, status: str, run_time: datetime, error_msg: str = "") -> None:
+        """
+        Write health status to file for healthcheck monitoring.
+
+        Args:
+            status: "OK" or "ERROR"
+            run_time: Timestamp of this run
+            error_msg: Error message if status is ERROR
+        """
+        try:
+            health_file = Path("/app/logs/health_status.txt")
+            health_file.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(health_file, 'w') as f:
+                f.write(f"{status} {run_time.isoformat()}\n")
+                if error_msg:
+                    f.write(f"ERROR_MSG: {error_msg}\n")
+
+            self.logger.debug(f"Health status written: {status}")
+        except Exception as e:
+            self.logger.warning(f"Failed to write health status: {e}")
