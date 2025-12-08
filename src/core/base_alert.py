@@ -318,4 +318,4 @@ class BaseAlert(ABC):
 
             self.logger.debug(f"Health status written: {status}")
         except Exception as e:
-            self.logger.warning(f"Failed to write health status: {e}")
+            self.logger.error(f"Failed to write health status: {e}")
