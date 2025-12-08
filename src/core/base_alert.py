@@ -159,6 +159,7 @@ class BaseAlert(ABC):
 
             if df.empty:
                 self.logger.info("No records found matching query criteria: df.empty == True")
+                self._write_health_status("OK", run_time)
                 return False
 
             # Step 2: Validate columns
@@ -171,6 +172,7 @@ class BaseAlert(ABC):
 
             if df_filtered.empty:
                 self.logger.info("No records after filtering: df_filtered.empty == True")
+                self._write_health_status("OK", run_time)
                 return False
 
             # Step 4: Filter out already-sent events
@@ -182,6 +184,7 @@ class BaseAlert(ABC):
 
             if df_unsent.empty:
                 self.logger.info("All records have been sent previously. No new notifications.")
+                self._write_health_status("OK", run_time)
                 return False
 
             self.logger.info(f"[OK] len(df_unsent)={len(df_unsent)} new record{'' if len(df_unsent)==1 else 's'} to notify")
