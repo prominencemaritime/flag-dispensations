@@ -44,7 +44,7 @@ USER appuser
 CMD ["python", "-m", "src.main"]
 
 # Healthcheck to monitor container
-HEALTHCHECK --interval=30m --timeout=10s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=1m --timeout=20s --start-period=30s --retries=3 \
   CMD test -f /app/logs/health_status.txt && \
       MINUTES=$(python3 -c "import os; print(int(float(os.getenv('SCHEDULE_FREQUENCY_HOURS', '1')) * 60 + 10))") && \
       test $(find /app/logs/health_status.txt -mmin -${MINUTES} | wc -l) -eq 1 && \
