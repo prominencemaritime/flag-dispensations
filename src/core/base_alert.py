@@ -234,6 +234,7 @@ class BaseAlert(ABC):
                 original_recipients = job['recipients']
                 original_cc_recipients = job.get('cc_recipients', [])
                 data = job['data']
+                self.logger.info(f"Trying to extract metadata")
                 metadata = job.get('metadata', {})
                 
                 # GENERATE FORMATTED EMAIL CONTENT
@@ -316,6 +317,8 @@ class BaseAlert(ABC):
 
             with open(health_file, 'w') as f:
                 f.write(f"{status} {run_time.isoformat()}\n")
+                f.write(f"ALERT_TYPE: {self.__class__.__name__}\n")
+                f.write(f"TIMEZONE: {self.config.timezone}\n")
                 if error_msg:
                     f.write(f"ERROR_MSG: {error_msg}\n")
 

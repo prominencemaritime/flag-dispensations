@@ -34,6 +34,9 @@ COPY tests/ ./tests/
 # Create necessary directories and set ownership
 RUN mkdir -p logs data && chown -R $UID:$GID /app
 
+# Make healthcheck script executable
+RUN chmod +x /app/scripts/healthcheck.py
+
 # Set Python to run in unbuffered mode (see logs in real-time)
 ENV PYTHONUNBUFFERED=1
 
@@ -43,9 +46,15 @@ USER appuser
 # Run with scheduling enabled by default using new main.py entry point
 CMD ["python", "-m", "src.main"]
 
-# Healthcheck to monitor container
-HEALTHCHECK --interval=1m --timeout=20s --start-period=30s --retries=3 \
-  CMD test -f /app/logs/health_status.txt && \
-      MINUTES=$(python3 -c "import os; print(int(float(os.getenv('SCHEDULE_FREQUENCY_HOURS', '1')) * 60 + 10))") && \
-      test $(find /app/logs/health_status.txt -mmin -${MINUTES} | wc -l) -eq 1 && \
-      grep -q "^OK" /app/logs/health_status.txt || exit 1
+# For daily scheduled tasks (SCHEDULE_TIMES=12:00,18:00)
+HEALTHCHECK --interval=5m --timeout=10s --start-period=2m --retries=2 \
+  CMD python3 /app/scripts/healthcheck.py
+
+# For frequent tasks (SCHEDULE_FREQUENCY_HOURS=1)
+#HEALTHCHECK --interval=2m --timeout=10s --start-period=2m --retries=2 \
+#  CMD python3 /app/scripts/healthcheck.py
+
+# For very frequent tasks (SCHEDULE_FREQUENCY_HOURS=0.25)
+#HEALTHCHECK --interval=1m --timeout=10s --start-period=1m --retries=3 \
+#  CMD python3 /app/scripts/healthcheck.py
+
