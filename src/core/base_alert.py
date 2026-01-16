@@ -289,7 +289,7 @@ class BaseAlert(ABC):
                 
             except Exception as e:
                 self.logger.error(f"Failed to send notification {idx}: {e}")
-                continue
+                raise
         
         # Save tracking data (in dry-run mode, still track to test the logic)
         if sent_keys:

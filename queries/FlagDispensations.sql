@@ -6,9 +6,9 @@ job_status=for_approval
 */
 SELECT
 	v.email AS vsl_email,
-	jv.vessel_id AS vessel_id,
+	je.vessel_id AS vessel_id,
 	v.name AS vessel,
-	jv.job_id as job_id,
+	je.id as job_id,
 	ji.name as importance,
 	je.title AS title,
 	fedt.name as dispensation_type,
@@ -38,11 +38,8 @@ LEFT JOIN
 	flag_extension_and_dispensation_types fedt
 	ON fedt.id = jvfe.type_id
 LEFT JOIN
-	job_vessels jv
-	ON jv.job_id = je.id
-LEFT JOIN
 	vessels v
-	ON v.id = jv.vessel_id
+	ON v.id = je.vessel_id
 WHERE
 	je.type = 'flag-extension-dispensation'
 	AND je.deleted_at IS NULL
